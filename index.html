@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard IoT - Niveles de Gas</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #f6f8f7;
+      --surface: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --line: #d9e2df;
+      --green: #15803d;
+      --green-dark: #166534;
+      --green-soft: #dcfce7;
+      --red: #dc2626;
+      --red-dark: #b91c1c;
+      --red-soft: #fee2e2;
+      --amber-soft: #fef3c7;
+      --amber: #92400e;
+      --shadow: 0 18px 45px rgba(18, 38, 32, 0.08);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+      border: 1px solid rgba(21, 128, 61, .18);
+      background: var(--green-soft);
+      color: var(--green-dark);
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(21, 128, 61, .12);
+    }
+
+    .notice {
+      display: none;
+      margin-bottom: 18px;
+      border: 1px solid rgba(220, 38, 38, .22);
+      border-radius: var(--radius);
+      background: #fff7f7;
+      color: #991b1b;
+      padding: 14px 16px;
+      font-size: 14px;
+      box-shadow: 0 12px 30px rgba(18, 38, 32, 0.06);
+    }
+
+    .notice.show {
+      display: block;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid rgba(217, 226, 223, .9);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      padding: 20px 22px 0;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .card-meta {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .chart-wrap {
+      height: 360px;
+      padding: 14px 18px 22px;
+    }
+
+    .control-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 22px;
+    }
+
+    .control-copy {
+      min-width: 0;
+    }
+
+    .control-copy h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .control-copy p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .button {
+      border: 0;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font: inherit;
+      font-size: 15px;
+      font-weight: 800;
+      padding: 14px 18px;
+      transition: transform .18s ease, background-color .18s ease, box-shadow .18s ease;
+      white-space: nowrap;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+    }
+
+    .button:active {
+      transform: translateY(0);
+    }
+
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: .65;
+      transform: none;
+    }
+
+    .emergency-button {
+      min-width: 190px;
+      color: #fff;
+    }
+
+    .emergency-button.close {
+      background: var(--red);
+      box-shadow: 0 14px 28px rgba(220, 38, 38, .22);
+    }
+
+    .emergency-button.close:hover {
+      background: var(--red-dark);
+    }
+
+    .emergency-button.open {
+      background: var(--green);
+      box-shadow: 0 14px 28px rgba(21, 128, 61, .22);
+    }
+
+    .emergency-button.open:hover {
+      background: var(--green-dark);
+    }
+
+    .table-card {
+      overflow: hidden;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 8px 0 0;
+    }
+
+    table {
+      width: 100%;
+      min-width: 720px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 16px 22px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+      vertical-align: middle;
+    }
+
+    th {
+      background: #fbfdfc;
+      color: #475467;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    tbody tr:hover {
+      background: #f8fbf9;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .gas-badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green-dark);
+      font-weight: 800;
+      padding: 6px 10px;
+      white-space: nowrap;
+    }
+
+    .gas-badge.high {
+      background: var(--red-soft);
+      color: #991b1b;
+    }
+
+    .gas-badge.medium {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .empty-state {
+      padding: 28px 22px;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .message {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 800px) {
+      .page {
+        width: min(100% - 24px, 1180px);
+        padding: 22px 0;
+      }
+
+      .topbar,
+      .card-header {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .topbar,
+      .card-header {
+        display: flex;
+      }
+
+      .status-pill {
+        justify-content: center;
+        width: 100%;
+      }
+
+      .chart-wrap {
+        height: 300px;
+        padding: 12px;
+      }
+
+      .control-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .button,
+      .emergency-button {
+        width: 100%;
+        min-width: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Dashboard IoT</p>
+        <h1>Monitoreo de niveles de gas</h1>
+        <p class="subtitle">Proyecto TA2 - Integrantes: 20195766 y 20186036</p>
+      </div>
+      <div class="status-pill" aria-label="Sistema activo">
+        <span class="status-dot" aria-hidden="true"></span>
+        Sistema activo
+      </div>
+    </header>
+
+    <div class="notice" id="notice" role="status"></div>
+
+    <section class="grid" aria-label="Panel principal">
+      <article class="card" aria-labelledby="chart-title">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title" id="chart-title">Niveles de gas</h2>
+            <p class="card-meta">Lecturas recibidas desde AWS</p>
+          </div>
+          <p class="card-meta" id="last-update">Esperando datos...</p>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="gasChart" aria-label="Grafico de lineas con niveles de gas por hora" role="img"></canvas>
+        </div>
+      </article>
+
+      <section class="card control-panel" aria-labelledby="control-title">
+        <div class="control-copy">
+          <h2 id="control-title">Control de emergencia</h2>
+          <p id="valve-state">Estado actual: valvula abierta</p>
+          <p class="message" id="control-message">El boton enviara la orden al backend configurado.</p>
+        </div>
+        <button class="button emergency-button close" id="valveButton" type="button">Cerrar Valvula</button>
+      </section>
+
+      <article class="card table-card" aria-labelledby="table-title">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title" id="table-title">Historial de registros</h2>
+            <p class="card-meta">Los registros mas recientes aparecen primero</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha y Hora</th>
+                <th>Ubicacion</th>
+                <th>Nivel Detectado</th>
+                <th>Alerta ID</th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody">
+              <tr><td colspan="4">Cargando datos...</td></tr>
+            </tbody>
+          </table>
+          <div class="empty-state" id="emptyState" hidden>No hay registros disponibles.</div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const API_URL = "https://joso83vhc5.execute-api.eu-central-1.amazonaws.com/prod/gas";
+    const GET_API_URL = API_URL;
+    const POST_API_URL = API_URL;
+
+    const demoRecords = [
+      { id: "demo-001", ubicacion: "Cocina Principal", nivel_gas: 710, estado: "Normal", fechaHora: Date.now() - 1000 * 60 * 20 },
+      { id: "demo-002", ubicacion: "Cocina Principal", nivel_gas: 845, estado: "Normal", fechaHora: Date.now() - 1000 * 60 * 12 },
+      { id: "demo-003", ubicacion: "Cocina Principal", nivel_gas: 2500, estado: "Fuga Detectada", fechaHora: Date.now() - 1000 * 60 * 6 },
+      { id: "demo-004", ubicacion: "Cocina Principal", nivel_gas: 760, estado: "Normal", fechaHora: Date.now() - 1000 * 60 * 2 }
+    ];
+
+    const recordsBody = document.getElementById("recordsBody");
+    const emptyState = document.getElementById("emptyState");
+    const lastUpdate = document.getElementById("last-update");
+    const valveButton = document.getElementById("valveButton");
+    const valveState = document.getElementById("valve-state");
+    const controlMessage = document.getElementById("control-message");
+    const chartCanvas = document.getElementById("gasChart");
+    const notice = document.getElementById("notice");
+
+    let valveIsOpen = true;
+    let gasChart = null;
+    let autoRefreshTimer = null;
+    const CHART_VISIBLE_POINTS = 25;
+
+    function showNotice(message) {
+      notice.textContent = message;
+      notice.classList.add("show");
+    }
+
+    function hideNotice() {
+      notice.textContent = "";
+      notice.classList.remove("show");
+    }
+
+    function getRecordId(record) {
+      return record.alertaId || record.id || "N/A";
+    }
+
+    function getLocation(record) {
+      return record.ubicacion || "N/A";
+    }
+
+    function getGasLabel(record) {
+      if (record.nivelGas !== undefined && record.nivelGas !== null) {
+        return String(record.nivelGas);
+      }
+
+      if (record.nivel_gas !== undefined && record.nivel_gas !== null) {
+        return record.estado ? `${record.estado} - ${record.nivel_gas}` : String(record.nivel_gas);
+      }
+
+      return "Sin lectura";
+    }
+
+    function getGasValue(record) {
+      const rawValue = record.nivel_gas !== undefined && record.nivel_gas !== null
+        ? record.nivel_gas
+        : getGasLabel(record);
+
+      const match = String(rawValue).match(/(\d+(?:\.\d+)?)\s*$/);
+      return match ? Number(match[1]) : 0;
+    }
+
+    function getEpoch(record) {
+      const timestamp = Number(record.fechaHora || record.fecha_hora || record.timestamp || record.createdAt);
+      return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+    }
+
+    function formatDateTime(record) {
+      const epoch = getEpoch(record);
+
+      if (!epoch) {
+        return "Sin fecha";
+      }
+
+      return new Date(epoch).toLocaleString("es-PE", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+    }
+
+    function formatChartLabel(record, index) {
+      const epoch = getEpoch(record);
+
+      if (epoch) {
+        return new Date(epoch).toLocaleTimeString("es-PE", {
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+      }
+
+      const id = getRecordId(record);
+      return id !== "N/A" ? String(id).slice(0, 8) : `Dato ${index + 1}`;
+    }
+
+    function unpackAwsResponse(data) {
+      let records = data;
+
+      if (records && records.body) {
+        records = typeof records.body === "string" ? JSON.parse(records.body) : records.body;
+      }
+
+      if (typeof records === "string") {
+        records = JSON.parse(records);
+      }
+
+      return Array.isArray(records) ? records : [];
+    }
+
+    function sortNewestFirst(records) {
+      const hasDates = records.some((record) => getEpoch(record));
+
+      if (hasDates) {
+        return [...records].sort((a, b) => (getEpoch(b) || 0) - (getEpoch(a) || 0));
+      }
+
+      return [...records].reverse();
+    }
+
+    function sortOldestFirst(records) {
+      const hasDates = records.some((record) => getEpoch(record));
+
+      if (hasDates) {
+        return [...records].sort((a, b) => (getEpoch(a) || 0) - (getEpoch(b) || 0));
+      }
+
+      return [...records];
+    }
+
+    function getBadgeClass(record) {
+      const label = getGasLabel(record).toLowerCase();
+
+      if (label.includes("fuga") || label.includes("alto")) {
+        return "high";
+      }
+
+      if (label.includes("medio")) {
+        return "medium";
+      }
+
+      return "";
+    }
+
+    function renderTable(records) {
+      recordsBody.innerHTML = "";
+      const incidentRecords = records
+        .filter((record) => record.estado === "Fuga Detectada")
+        .reverse();
+
+      emptyState.hidden = incidentRecords.length > 0;
+
+      if (!incidentRecords.length) {
+        recordsBody.innerHTML = '<tr><td colspan="4">No hay incidentes disponibles.</td></tr>';
+        return;
+      }
+
+      incidentRecords.forEach((record) => {
+        const row = document.createElement("tr");
+        const badgeStyles = record.estado === "Fuga Detectada"
+          ? "background-color: var(--red-soft); color: var(--red-dark);"
+          : "background-color: var(--green-soft); color: var(--green-dark);";
+        const badgeText = `${record.estado} - ${record.nivel_gas}`;
+
+        row.innerHTML = `
+          <td>${new Date(record.fechaHora || record.fecha_hora || record.timestamp || Date.now()).toLocaleString()}</td>
+          <td>${record.ubicacion}</td>
+          <td><span class="gas-badge" style="${badgeStyles}">${badgeText}</span></td>
+          <td>${record.id}</td>
+        `;
+
+        recordsBody.appendChild(row);
+      });
+    }
+
+    function renderChart(records) {
+      if (typeof Chart === "undefined") {
+        showNotice("No se pudo cargar Chart.js. Revisa tu conexion a internet.");
+        return;
+      }
+
+      const visibleRecords = records.slice(-CHART_VISIBLE_POINTS);
+      const labels = visibleRecords.map((record, index) => formatChartLabel(record, index));
+      const gasLevels = visibleRecords.map((record) => getGasValue(record));
+
+      if (gasChart) {
+        gasChart.data.labels = labels;
+        gasChart.data.datasets[0].data = gasLevels;
+        gasChart.update("none");
+        return;
+      }
+
+      gasChart = new Chart(chartCanvas, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Nivel de Gas",
+              data: gasLevels,
+              borderColor: "#15803d",
+              backgroundColor: "rgba(21, 128, 61, 0.12)",
+              borderWidth: 3,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              pointBackgroundColor: "#15803d",
+              pointBorderColor: "#ffffff",
+              pointBorderWidth: 2,
+              fill: true,
+              tension: 0.35
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            intersect: false,
+            mode: "index"
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => `Nivel de Gas: ${context.parsed.y}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: "Hora",
+                color: "#667085",
+                font: { weight: "bold" }
+              },
+              grid: {
+                color: "rgba(217, 226, 223, .6)"
+              },
+              ticks: {
+                color: "#667085",
+                maxRotation: 0,
+                autoSkip: true,
+                maxTicksLimit: 8
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: "Nivel de Gas",
+                color: "#667085",
+                font: { weight: "bold" }
+              },
+              beginAtZero: true,
+              grid: {
+                color: "rgba(217, 226, 223, .8)"
+              },
+              ticks: {
+                color: "#667085"
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function updateDashboard(records) {
+      const newestFirstRecords = sortNewestFirst(records);
+      const oldestFirstRecords = sortOldestFirst(records);
+
+      renderTable(oldestFirstRecords);
+      renderChart(oldestFirstRecords);
+
+      if (newestFirstRecords.length > 0) {
+        const ultimoRegistro = newestFirstRecords[0];
+        lastUpdate.textContent = `Ultima lectura: ${formatDateTime(ultimoRegistro)}`;
+
+        // ==========================================
+        // ¡NUEVO!: SINCRONIZAR EL BOTÓN CON LA REALIDAD
+        // ==========================================
+        // Si el último dato de AWS dice "Fuga Detectada", cerramos la válvula en la web
+        if (ultimoRegistro.estado === "Fuga Detectada") {
+          valveIsOpen = false;
+        } 
+        // Si dice "Normalizado" o "Lectura Normal", la abrimos
+        else {
+          valveIsOpen = true;
+        }
+        
+        // Forzamos al botón y al texto a actualizar sus colores y palabras
+        updateValveButton(); 
+
+      } else {
+        lastUpdate.textContent = "Sin lecturas";
+      }
+    }
+
+    async function obtenerHistorial() {
+      lastUpdate.textContent = "Cargando datos...";
+
+      try {
+        hideNotice();
+        const respuesta = await fetch(GET_API_URL, { cache: "no-store" });
+
+        if (!respuesta.ok) {
+          throw new Error(`Error HTTP: ${respuesta.status}`);
+        }
+
+        const datos = await respuesta.json();
+        const registros = unpackAwsResponse(datos);
+        updateDashboard(registros);
+      } catch (error) {
+        console.error("Error al obtener datos:", error);
+        updateDashboard(demoRecords);
+        lastUpdate.textContent = "Error al cargar AWS";
+        showNotice("No se pudo leer la API desde el navegador. Si la URL funciona fuera del navegador, revisa CORS en API Gateway.");
+      }
+    }
+
+    function iniciarActualizacionAutomatica() {
+      if (autoRefreshTimer) {
+        clearInterval(autoRefreshTimer);
+      }
+
+      autoRefreshTimer = setInterval(() => {
+        obtenerHistorial();
+      }, 3000);
+    }
+
+    function updateValveButton() {
+      if (valveIsOpen) {
+        valveButton.textContent = "Cerrar Valvula";
+        valveButton.classList.add("close");
+        valveButton.classList.remove("open");
+        valveState.textContent = "Estado actual: valvula abierta";
+      } else {
+        valveButton.textContent = "Abrir Valvula";
+        valveButton.classList.add("open");
+        valveButton.classList.remove("close");
+        valveState.textContent = "Estado actual: valvula cerrada";
+      }
+    }
+
+    async function controlarValvula() {
+      const orden = valveIsOpen ? "CERRAR" : "ABRIR";
+      valveButton.disabled = true;
+      controlMessage.textContent = `Enviando orden: ${orden}...`;
+
+      try {
+        const respuesta = await fetch(POST_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ orden })
+        });
+
+        if (!respuesta.ok) {
+          throw new Error(`Error HTTP: ${respuesta.status}`);
+        }
+
+        let resultado = {};
+
+        try {
+          resultado = await respuesta.json();
+        } catch (error) {
+          resultado = {};
+        }
+
+        valveIsOpen = !valveIsOpen;
+        updateValveButton();
+        controlMessage.textContent = resultado.mensaje || "Orden enviada correctamente.";
+      } catch (error) {
+        console.error("Error al enviar comando:", error);
+        controlMessage.textContent = "No se pudo enviar la orden al backend.";
+        showNotice("No se pudo enviar el comando de la valvula. Revisa CORS, el metodo POST y el formato esperado por AWS.");
+      } finally {
+        valveButton.disabled = false;
+      }
+    }
+
+    valveButton.addEventListener("click", controlarValvula);
+    window.addEventListener("load", () => {
+      obtenerHistorial();
+      iniciarActualizacionAutomatica();
+    });
+  </script>
+</body>
+</html>
